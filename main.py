@@ -12,7 +12,7 @@ def run(path_to_file,kwargs = {},test = 0):
 	
 	global _OUT
 
-	structure = utils.preprocess.tokenize(path_to_file) # groundworks.
+	structure = utils.preprocess.Structure(path_to_file) # groundworks.
 	
 	for step in pipeline:
 		function = getattr(functions,step) 		# reads off the pipeline
@@ -21,30 +21,11 @@ def run(path_to_file,kwargs = {},test = 0):
 												
 		output = function(structure,kwargs)		# collects output of a func
 		
-		structure = addinfo(structure,output) 	# updates the final output 
+		structure.update(output) 				# updates the final output 
 												# with the partial output 
 												# just collected
 
 	_OUT = structure # we store the output in a global
 	
 	return structure # and return it
-	
-def addinfo(out,pout):
-	"""out is a list of sentences, which are list of [word,info_dict] 
-	lists. addinfo will update the info_dict part."""
-	
-	merged_out = []
-	for sent,psent in out,pout:
-		merged_sent = []
-		
-		for uword,puword in sent,psent:
-			word,infodict = uword
-			pword,pinfodict = puword
-			
-			infodict.update(pinfodict)
-			merged_sent.append([word,infodict])
-			
-		merged_out.append(merged_sent)
-	
-	return merged_out		
 			
