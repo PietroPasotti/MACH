@@ -2,8 +2,8 @@
 import nltk as _nltk
 from os.path import isfile as _isfile
 
-punct = """.,;:'"(){}[]\/!?^*#|-_=&%$         \t\n"""
-	
+_default_toresolve = set(['noun','attribute'])
+
 def html_filter(path):
 	"""
 	If path is a path, opens it, cleans html and returns str.
@@ -32,6 +32,8 @@ def html_filter(path):
 	return uniform
 
 def tokenize(path):
+	
+	punct = """.,;:'"(){}[]\/!?^*#|-_=&%$         \t\n"""
 	
 	rawtext = html_filter(path) # we tear off html straight away
 		
@@ -77,6 +79,46 @@ def tokenize(path):
 	# now tokens should consist of a list of sentences, which are lists of words.
 	return tokens
 
+def entity(string,struct):
+	"""
+	Outputs a likelihood ratio (float) that the given string represents
+	an entity.
+	"""
+	
+	# 1. NOUNS and "attributes" seem to often be entities. _default_toresolve 
+	# 	stores such categories
+	
+	pos = struct.locate(string)[0]
+	nice = struct.trees[pos[0]]['nice']
+	
+	try:
+		categs = nice[string] if string in nice else nice[string.lower()]
+	except Exception:
+		# some words are just skipped by the parsing engine.
+		# so we might not find them at all. Ignore them!
+		return 0
+	
+	value1 = len(set(struct._toresolve).intersection(set(categs)))/ len(_default_toresolve)
+	
+	# 2. capitalized words, unless they are at the very start of a sentence,
+	# are often entities
+	
+	value2 = 1 if string[0].isupper() and pos[0] != 0 else 0
+		
+	# 3. boh.
+	
+	values = (value1, value2)
+	final =  sum(values) / len(values)
+	return final
+
+def entities(structure):
+	"""calls entity on every word in the structure"""
+	
+	for sent,words in structure.content.items():
+		for wordid,wordict in words.items():
+			wordict['entity'] = entity(wordict['word'],structure)
+	return
+	
 class Structure(object):
 	
 	def __init__(self,path):
@@ -84,14 +126,18 @@ class Structure(object):
 		Should be initialized on a path to a file; which contains the full
 		text to be analysed."""
 		
-		self.content = self.parse(path)
-		self.trees = self.parse_trees()		
-		return None
+		global _default_toresolve
+		
+		self._toresolve = _default_toresolve	# holds whatever we deem useful resolving
+		self.content = self.parse(path)			# raw-ish content
+		self.trees = self.parse_trees() 		# trees! we like trees!
+		entities(self) 							# tries to guess which words denote entities
+		return 
 	
 	def __str__(self):
 		
 		raw = self.raw()
-		return "<Structure({}), at {}>".format(raw[:10] + '...',id(self))
+		return "<Structure('{}'), {} sentences>".format(raw[:15] + '...',len(self.raw_sentences()))
 	
 	def parse(self,content):
 		
@@ -166,6 +212,13 @@ class Structure(object):
 			fulltext += '.'
 				
 		return fulltext.strip()
+	
+	def raw_sentences(self):
+		"""
+		Returns the raw, untagged text.
+		"""
+		
+		return [sent + '.' for sent in self.raw().split('.') if sent]
 		
 	def raw_textform(self):
 		"""
@@ -184,33 +237,53 @@ class Structure(object):
 		
 	def locate(self,string):
 		"""
-		Returns (sent,word1 [,word2*]) where string was found in the structure. 
+		Returns [(sent,word),[...]] where string was found in the structure.
+		All parts of the string are expected to be found in sequence. 
 		"""
 		
 		words = [word.strip() for word in string.split(' ')]
-		firstword = words[0]
+		first = words[0]
+	
+		matches = []
+	
+		sents = [sent.lower().strip('.') for sent in self.raw_sentences()] # .lower!
+		matches_sents = [sents.index(sent) for sent in sents if string.lower() in sent] # .lower!
+			#	this should return the indexes of the sentences where
+			# 	**the full string** was matched.
 		
-		def getfirst():
-			nonlocal self
-			for sentID,sent in self.content.items():
-				for wordID,word in sent.items():
-					
-					if word['word'] == firstword:
-						return (sentID,wordID) # coordinates for sentence, word pair.
-
-		firstmatch = getfirst()
-		if firstmatch is None:
-			raise BaseException('No matches found for "{}".'.format(firstword))
+		for idx in matches_sents:
+			sent = [word.strip().lower() for word in sents[idx].split(' ')]
+			for word in words:
+				word = word.lower() # warning: lowercase match!
+				if word in sent: 
+					matches.append((idx, sent.index(word))) # (index of sentence, index of word)
 			
-		howmany = len(words)
-		matches = [firstmatch] + [(firstmatch[0], firstmatch[1] + n) for n in range(1,len(words),1)]
-		# this should make sure that, if the match is 4 words long, say United States of America,
-		# then if 2,5 is where 'United' was found, then match should be (2,5),(2,6),(2,7),(2,8).
-		# 2 stands for the sentence where the match was found, 5 for the word. ASSUMPTION: that no match
-		# occurs across two sentences! Could shoot outofrange errors if this goes badly...
-		
+		if not matches:
+			# nothing found yet: we have a problem.
+			# we could search for individual words, instead of matching 
+			# the whole string at the beginning. But that's boring. 
+			# Better raise an error.
+			
+			raise ValueError('String {} not found.'.format(string))
+	
 		return matches
+	
+	def to_resolve(self,lst = []):
+		"""
+		used to determine what to resolve. For example if we know some word
+		is a determiner ('that', 'it') or some uninteresting neighbour,
+		we probably won't like to waste precious time and resources trying
+		to resolve it. 
+		"""
+		
+		if lst:
+			self._toresolve.extend(lst)
+			
+		return self._toresolve
 		
 		
+		
+		
+			
 		
 		

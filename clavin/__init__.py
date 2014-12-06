@@ -134,6 +134,7 @@ def kill_server():
     """
     Kills the Clavin-rest server.
     """
+    global server_process
     
     server_process.kill()
     server_process = None
