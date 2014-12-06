@@ -4,8 +4,7 @@ functions, and also determines which functions get called. All of them
 receive the same input, and their outputs are merged along the way."""
 
 pipeline = [
-	#'sentence_level_idiom_checker',
-	'people_finder',
-	#'locations_finder',
+	'clavin_geoparse',
+	'freebase_query'#,
 	#'multiword_term_finder' 
 	]

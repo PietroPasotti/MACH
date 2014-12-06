@@ -11,19 +11,19 @@ _OUT = {}
 def run(path_to_file,kwargs = {},test = 0):
 	
 	global _OUT
-
-	structure = utils.preprocess.Structure(path_to_file) # groundworks.
+	
+	if not isinstance( path_to_file, utils.preprocess.Structure):
+		structure = utils.preprocess.Structure(path_to_file) # groundworks.
+	else:
+		structure = path_to_file
 	
 	for step in pipeline:
 		function = getattr(functions,step) 		# reads off the pipeline
 												# the next function to be
 												# called.
 												
-		output = function(structure,kwargs)		# collects output of a func
-		
-		structure.update(output) 				# updates the final output 
-												# with the partial output 
-												# just collected
+		output = function(structure)		# collects output of a func
+		# the function is expected to stably update the structure at once
 
 	_OUT = structure # we store the output in a global
 	
