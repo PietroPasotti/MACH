@@ -118,12 +118,12 @@ def start_server():
     """
     
     pipe = _subprocess.PIPE
-    print('\nSetting up server... Wait 5 seconds.')
+    print('\n\tSetting up server... Wait 5 seconds.')
     p = _subprocess.Popen(_command, cwd = _clavin_cd, stdin = pipe,
                             stdout = pipe , stderr = pipe, bufsize = 1)
     
     from time import sleep
-    sleep(5) # the server takes some time to start up... we avoid premature requests by waiting here instead.
+    sleep(6) # the server takes some time to start up... we avoid premature requests by waiting here instead.
     
     global server_process
     server_process = p
@@ -179,7 +179,7 @@ def tag_structure(structure):
     updates the structure, returns.
     """
     
-    geotags = get_geotags(structure.raw())
+    geotags = get_geotags(structure.raw(enc='utf-8'))
     
     for name, data in geotags.items():
         

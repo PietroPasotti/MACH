@@ -41,6 +41,18 @@ def freebase_dutch_top(query):
     else:
         return 
 
+def freebase_eng_top(query):
+    """
+    Retrieves the best result (top likelyhood) of a query to the english
+    freebase ontology.
+    """
+    
+    outcome = freebase_matcher(query,{'lang':'en'}).json()['result']
+    if outcome:
+        return outcome [0]
+    else:
+        return  
+
 def multiquery_dutch(text):
     """
     Takes a text, calls freebase_dutch_top on each word in it.
@@ -61,32 +73,47 @@ def multiquery_dutch(text):
         
     return out
         
-def tag_structure(structure):
+def tag_structure(structure,lang = 'dutch',vb = False):
     """
     The toplevel function of this module. Works with dutch freebase.
     Takes a Structure instance, gets the raw text, tags all it can tag,
     updates the structure, returns.
     """
     
-    rawtext = structure.raw_textform()
-    tagged = multiquery_dutch(rawtext) 	# list of sentences, which are lists 
-										# of (word, dict_of_results) tuples
+    if lang == 'dutch':
+        funct = freebase_dutch_top
+    else:
+        funct = freebase_eng_top
     
     matches_full = {}
     
-    for sentence in tagged:
-        for word, outcome in sentence:
-            positions = structure.locate(word)
+    for position, word in structure.walk_entities(enc='utf-8'):
+            
+            if vb:
+                print('Grabbed word {}, at {}...'.format(word,position))
+            
+            outcome = funct(word)
+            
+            if not outcome:
+                print('  [no result]  ',end = '')
+                continue
+            
+            if vb:
+                print('\t'+str(outcome))
                         
             tags = set( ['responsible=freebase', # who got the match
                         'freebase_id={}'.format(outcome.get('id')),
                          'freebase_id={}'.format(outcome.get('mid'))
                          ]) # ID of the entity
             
-            matches = { pos:tags for pos in positions } # each position is mapped to the set of tags we determined.
+            matches = { position:tags } # position is mapped to the set of tags we determined.
             matches_full.update(matches)
-            
-    structure.update(matches) # stable update of the structure.
+    if vb:
+        print('\n\tMATCHES:   ')
+        for match,text in matches_full.items():
+            print(match,'\t\t',text)
+             
+    structure.update(matches_full) # stable update of the structure.
         
     return
     

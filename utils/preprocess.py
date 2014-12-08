@@ -2,7 +2,7 @@
 import nltk as _nltk
 from os.path import isfile as _isfile
 
-_default_toresolve = set(['noun','attribute'])
+_default_entity_threshold = 0.5
 
 def html_filter(path):
 	"""
@@ -98,7 +98,9 @@ def entity(string,struct):
 		# so we might not find them at all. Ignore them!
 		return 0
 	
-	value1 = len(set(struct._toresolve).intersection(set(categs)))/ len(_default_toresolve)
+	valuables = set(('noun','attribute'))
+	
+	value1 = len(valuables.intersection(set(categs)))/ len(valuables)
 	
 	# 2. capitalized words, unless they are at the very start of a sentence,
 	# are often entities
@@ -125,10 +127,7 @@ class Structure(object):
 		"""
 		Should be initialized on a path to a file; which contains the full
 		text to be analysed."""
-		
-		global _default_toresolve
-		
-		self._toresolve = _default_toresolve	# holds whatever we deem useful resolving
+
 		self.content = self.parse(path)			# raw-ish content
 		self.trees = self.parse_trees() 		# trees! we like trees!
 		entities(self) 							# tries to guess which words denote entities
@@ -197,7 +196,7 @@ class Structure(object):
 		for index, tags in info.items():			
 			self.content[index[0]][index[1]]['tags'].update(tags)
 
-	def raw(self):
+	def raw(self,enc=False):
 		"""
 		Returns the raw, untagged text.
 		"""
@@ -210,17 +209,20 @@ class Structure(object):
 					fulltext += " "
 				fulltext += word['word'] # each word is a {'tags': set(), 'word' : str()} object 
 			fulltext += '.'
-				
+		
+		if enc:
+			return fulltext.strip().encode(enc)
 		return fulltext.strip()
 	
-	def raw_sentences(self):
+	def raw_sentences(self,enc=False):
 		"""
 		Returns the raw, untagged text.
 		"""
+		if enc:
+			return [sent.strip().encode(enc) + '.' for sent in self.raw().split('.') if sent]
+		return [sent.strip() + '.' for sent in self.raw().split('.') if sent]
 		
-		return [sent + '.' for sent in self.raw().split('.') if sent]
-		
-	def raw_textform(self):
+	def raw_textform(self,enc=False):
 		"""
 		Returns a hierarchical structure [[[word,word,word] [word...] []]
 		"""
@@ -232,7 +234,8 @@ class Structure(object):
 			for word in sent.values():
 				s += [word['word']]
 			t += [s]
-		
+		if enc:
+			return t.encode(enc)		
 		return t
 		
 	def locate(self,string):
@@ -268,20 +271,18 @@ class Structure(object):
 	
 		return matches
 	
-	def to_resolve(self,lst = []):
+	def walk_entities(self,thresh = _default_entity_threshold,enc=False):
 		"""
-		used to determine what to resolve. For example if we know some word
-		is a determiner ('that', 'it') or some uninteresting neighbour,
-		we probably won't like to waste precious time and resources trying
-		to resolve it. 
+		Yields all words likely (thresh) to be entities, together with
+		their position.
 		"""
 		
-		if lst:
-			self._toresolve.extend(lst)
-			
-		return self._toresolve
-		
-		
+		for sid,sent in self.content.items():
+			for wid,wordcont in sent.items():
+				if wordcont['entity'] >= thresh:
+					if enc:
+						yield ((sid,wid), wordcont['word'].encode(enc))
+					yield ((sid,wid), wordcont['word'])
 		
 		
 			
