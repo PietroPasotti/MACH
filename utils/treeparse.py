@@ -37,11 +37,12 @@ def nicify(dupira_sent):
 		
 	output = {}
 	
-	translation = {	'N:': 'noun',
-					'V:': 'verb',
-					'Q:': 'quantity',
-					'A:': 'attribute',
-					'X:': 'x_type', # dafuq is X?
+	translation = {	'N': 'noun',
+					'V': 'verb',
+					'Q': 'quantity',
+					'P': 'predicate',
+					'A': 'attribute',
+					'X': 'x_type', # dafuq is X?
 					'<DET': 'determiner',
 					'<QUANT': 'quantifier',
 					'<SUBJ': 'subject',
@@ -50,7 +51,6 @@ def nicify(dupira_sent):
 					'<PREP': 'preposition',
 					'<AUX': 'auxiliary',
 					'<PRED': 'predicate',
-					'P:': 'preposition',
 					'>OBJ': 'object'}
 	
 	matches = [[piece for piece in match if piece] for match in particles.findall(dupira_sent)]

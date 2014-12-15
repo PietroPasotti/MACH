@@ -1,0 +1,121 @@
+\documentclass[11pt,leqno,fleqn]{article}
+\usepackage{amsmath,amssymb,wasysym}
+\usepackage{amsthm,xspace}
+\usepackage{bm}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{listings}
+%\usepackage{mathabx}
+\usepackage{fancyhdr}
+\usepackage{tikz,subfigure}
+\usepackage{graphicx}
+\usepackage{bussproofs}
+
+\tikzstyle{index on}=[inner sep=2pt, white, circle, fill=black]
+\tikzstyle{index off}=[inner sep=2pt, black, circle, draw]
+\tikzstyle{index gray}=[inner sep=2pt, black, circle, fill=lightgray]
+\tikzstyle{opaque}=[fill=gray,fill opacity=.1]
+\tikzstyle{counter}=[densely dashed]
+\usetikzlibrary{arrows}
+
+\fancyhead[RO]{Pietro Pasotti, MACH - report}
+\fancyfoot[C]{\thepage}
+
+
+\def\check{\tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+
+\newcommand{\rtuple}[1]{\pmb{\langle} #1 \pmb{\rangle}}
+\newcommand{\tuple}[1]{\langle #1 \rangle}
+\newcommand{\eclass}[1]{[#1]_\sim}
+\newcommand{\nmodels}{\not\models}
+\newcommand{\F}{\mathcal{F}}
+\newcommand{\M}{\mathcal{M}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Pow}{\mathcal{P}}
+\newcommand{\bisim}{\leftrightharpoons}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\kmodels}{\mathrel{|\hspace{-1pt}|\hspace{-2.3pt}-}}
+\newcommand{\il}{\vdash_{\textbf{IL}}}
+\newcommand{\set}[1]{\{#1\}}
+
+
+% swap phi, varphi commands
+\let\temp\phi
+\let\phi\varphi
+\let\varphi\temp
+
+\begin{document}
+
+\pagestyle{fancy}
+\begin{center} \textbf{MACH - report} \end{center}
+
+\section{The target}
+
+The target is to write a program that, given a raw string of text, does two things:
+\begin{enumerate}
+\item Identifies and resolves named entities occurring in the text, along with semantic relations occurring between them
+\item Transforms the tags into RDFA tags and returns HTML - RDFA encoded text.
+\end{enumerate}
+
+\section{Milestones, or how to reach the target}
+
+The idea is to write a program as modular as possible. We all agree that the tough step in the target above is going to be 1. So I will focus on that one, in this short report. A rough pipeline might look like the following:
+\begin{enumerate}
+\item [(syntax)] parse the dependency tree of the text. This is useful insofar as it gives very valuable clues about the semantic role of the parts of the sentences.
+\item [(extraction)] obtain from the dependency trees the words/sequences of words that are most likely to denote entities (nodes) or relations (edges).
+\item [(resolution)] defer to sub-modules the duty of guessing/determining what does each extracted name refer to. This should include:
+\begin{itemize}
+\item [(geonames)] identify names for localities
+\item [(people)] identify the people behind their names
+\item [(relations)] this will guess the (not-yet-guessed) edges of the graph. Should be done last, for a geoname being a geoname is in itself a clue of the semantic relations that it might be entertaining with other entities.
+\end{itemize}
+\end{enumerate}
+
+\section{Progress and difficulties}
+
+The first try was to check the availability of off-the-shelf named entity resolution systems.
+To see what I have tried so far, you need to have installed Dupira (a Dutch parser), Freebase and CLAVIN-Rest's Python3 api.
+
+Then:
+\lstset{language=Python} 
+\begin{lstlisting}
+from mach.utils.preprocess import Structure
+import mach
+struct = Structure('./mach/data/feed/article1777.txt')
+mach.main.run(struct)
+\end{lstlisting}
+
+this will create a Structure (a wrapper class for the text and the tags), and tag it with the full available pipeline. At this moment, that means CLAVIN and Freebase.
+
+I encountered several problems.
+\begin{itemize}
+\item the Dupira parser for Dutch sometimes just fails to parse sentences, such as "\emph{Drie jaar krimp Itali\"e blijft in een recessie}.'' A new parser has to be tried.
+\item the CLAVIN geoparsing service relies on a Stanford NERF which is trained on English text. This means that it works really well (has won a couple of awards) but not on Dutch text. No proper off-the-shelf Dutch api seems to be available for this purpose: making one should not be too difficult.
+\item the Freebase api returns some interesting results, but is terribly imprecise. The point is that it will try to match \emph{any} word to a named entity, so entering ``\emph{hier}'' will return as top result `Haier', in the category `Consumentenelektronica'. Clearly not useful.
+However doing some selection yielded more promising results: depending on the syntax NOUN category identifier and on whether the word was capitalised, a threshold secured that only certain words be passed to Freebase.
+\end{itemize}
+
+At the present state of the system, most entities go unnoticed. ``\emph{Duitsland}'' is not recognized, but ``\emph{Duitsers}'' is tagged correctly:
+
+\begin{lstlisting}
+'freebase_id=/en/germany',
+'freebase_id=/m/0345h'
+\end{lstlisting}
+
+My guess is that the approach is promising, but many things need improvement. A few points:
+\begin{itemize}
+\item \emph{Use more the syntactic information}. Tree parsing is expensive, but extremely powerful: use it more, or let it go!
+\item Make a custom powerful entity extractor, optimized for Dutch. \emph{Tertium non datur}, in this case.
+\item Freebase has an huge ontology, and I think we really need one. Though this might not be the best one (in terms of precision).
+\end{itemize}
+
+\flushright[Pietro Pasotti, Amsterdam 2014]
+
+
+
+
+
+
+\end{document}
